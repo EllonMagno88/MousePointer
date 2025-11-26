@@ -63,12 +63,10 @@
   let gyroEnabled = false;
   let moved = false;
 
-  // --- Variáveis do acelerômetro ---
   let accelListener = null;
   let lastAX = null;
   let lastAY = null;
 
-  // Ajuste fino
   let accelFactor = 4.5;
   let minDelta = 0.08;
 
@@ -87,8 +85,9 @@
   const toggleMode = document.getElementById('toggleMode');
 
   function setStatus(s,color='#0b5'){
-    statusEl.textContent = s;
-    statusEl.style.background = color;
+    statusEl.textContent=s;
+    statusEl.style.background=color;
+    console.log("[STATUS]", s);
   }
 
   function connect(){
@@ -96,184 +95,129 @@
     const token = tokenInput.value.trim();
     if(!url || !token) return alert("Informe endereço e token!");
 
-    // Ajusta WS/WSS automático
-    if(location.protocol === "https:" && url.startsWith("ws://")){
+    // Força WSS se página HTTPS
+    if(location.protocol==="https:" && url.startsWith("ws://")){
       url = url.replace("ws://","wss://");
+      console.log("Forçando WSS:", url);
     }
 
-    ws = new WebSocket(url);
+    try{
+      ws = new WebSocket(url);
+    }catch(e){
+      setStatus("Erro ao criar WS", "#a00");
+      console.error(e);
+      return;
+    }
 
     ws.onopen = () => {
+      setStatus("Conectado, autenticando...", "#054");
       ws.send(JSON.stringify({type:"auth", token}));
-      setStatus("Conectado a " + url, "#054");
     };
     ws.onclose = () => setStatus("Desconectado", "#a00");
-    ws.onerror = () => setStatus("Erro de conexão", "#a00");
+    ws.onerror = e => setStatus("Erro de conexão", "#a00");
     ws.onmessage = msg => {
       try{
-        const data = JSON.parse(msg.data);
-        if(data.type==='auth' && data.status==='ok'){
-          setStatus("Autenticado ✔", "#0a4");
-        } else if(data.type==='auth'){
-          setStatus("Token inválido ❌", "#a00");
-          ws.close();
-        }
-      }catch(e){}
+        const data=JSON.parse(msg.data);
+        if(data.type==="auth" && data.status==="ok") setStatus("Autenticado ✔", "#0a4");
+        else if(data.type==="auth") { setStatus("Token inválido ❌","#a00"); ws.close(); }
+      }catch(e){ console.warn("Mensagem inválida:", msg.data); }
     };
   }
 
   function disconnect(){
     if(ws){
-      try{
-        if(ws.readyState === WebSocket.OPEN){
-          ws.send(JSON.stringify({type:"disconnect"}));
-        }
-      }catch(e){}
+      try{ if(ws.readyState===WebSocket.OPEN) ws.send(JSON.stringify({type:"disconnect"})); }catch(e){}
       disableMotion();
       ws.close();
     }
-    ws = null;
-    setStatus("Desconectado", "#a00");
+    ws=null;
+    setStatus("Desconectado","#a00");
   }
 
-  connectBtn.addEventListener('click', connect);
-  disconnectBtn.addEventListener('click', disconnect);
+  connectBtn.addEventListener("click", connect);
+  disconnectBtn.addEventListener("click", disconnect);
 
   function send(obj){
-    if(!ws || ws.readyState !== WebSocket.OPEN) return;
+    if(!ws || ws.readyState!==WebSocket.OPEN) return;
     ws.send(JSON.stringify(obj));
   }
 
-  // ============================================================
+  // ===========================================
   // ACELERÔMETRO / GIROSCÓPIO
-  // ============================================================
+  // ===========================================
   async function enableMotion(){
     if(gyroEnabled) return;
-    if(typeof DeviceMotionEvent === 'undefined'){
-      alert("Seu dispositivo não suporta sensores de movimento.");
-      return;
-    }
+    if(typeof DeviceMotionEvent==="undefined"){ alert("Seu dispositivo não suporta sensores"); return; }
 
     try{
-      if(typeof DeviceMotionEvent.requestPermission === "function"){
-        const perm = await DeviceMotionEvent.requestPermission();
-        if(perm !== "granted"){
-          alert("Permissão negada!");
-          return;
-        }
+      if(typeof DeviceMotionEvent.requestPermission==="function"){
+        const perm=await DeviceMotionEvent.requestPermission();
+        if(perm!=="granted"){ alert("Permissão negada"); return; }
       }
-    }catch(e){
-      alert("Erro ao solicitar permissão.");
-      return;
-    }
+    }catch(e){ alert("Erro permissão"); console.error(e); return; }
 
     startAccelerometer();
   }
 
   function startAccelerometer(){
-    gyroEnabled = true;
+    gyroEnabled=true;
     toggleMode.classList.add("active");
-    toggleMode.textContent = "Desativar controle por movimento";
-    pad.style.opacity = "0.5";
+    toggleMode.textContent="Desativar controle por movimento";
+    pad.style.opacity="0.5";
 
-    lastAX = null;
-    lastAY = null;
+    lastAX=null; lastAY=null;
 
-    accelListener = e =>{
-      if(!gyroEnabled || !ws || ws.readyState !== WebSocket.OPEN) return;
-      const acc = e.accelerationIncludingGravity;
-      if(!acc) return;
+    accelListener=e=>{
+      if(!gyroEnabled || !ws || ws.readyState!==WebSocket.OPEN) return;
+      const acc=e.accelerationIncludingGravity; if(!acc) return;
 
-      let ax = acc.x, ay = acc.y;
+      let dx=0, dy=0;
+      if(lastAX!==null){ dx=acc.x-lastAX; dy=acc.y-lastAY; }
+      lastAX=acc.x; lastAY=acc.y;
 
-      if(lastAX === null){
-        lastAX = ax; lastAY = ay; return;
-      }
+      if(Math.abs(dx)<minDelta) dx=0;
+      if(Math.abs(dy)<minDelta) dy=0;
+      if(dx===0 && dy===0) return;
 
-      let dx = ax - lastAX;
-      let dy = ay - lastAY;
-
-      lastAX = ax; lastAY = ay;
-
-      if(Math.abs(dx) < minDelta) dx = 0;
-      if(Math.abs(dy) < minDelta) dy = 0;
-      if(dx === 0 && dy === 0) return;
-
-      dx *= accelFactor;
-      dy *= accelFactor;
-
-      // Suaviza movimentos bruscos
-      dx = Math.sign(dx) * Math.min(Math.abs(dx), 15);
-      dy = Math.sign(dy) * Math.min(Math.abs(dy), 15);
+      dx*=accelFactor; dy*=accelFactor;
+      dx=Math.sign(dx)*Math.min(Math.abs(dx),15);
+      dy=Math.sign(dy)*Math.min(Math.abs(dy),15);
 
       send({type:"gyro", dx, dy});
     };
 
     window.addEventListener("devicemotion", accelListener);
+    console.log("Controle por movimento ativado");
   }
 
   function disableMotion(){
-    gyroEnabled = false;
+    gyroEnabled=false;
     toggleMode.classList.remove("active");
-    toggleMode.textContent = "Ativar controle por movimento";
-    pad.style.opacity = "1";
+    toggleMode.textContent="Ativar controle por movimento";
+    pad.style.opacity="1";
     if(accelListener) window.removeEventListener("devicemotion", accelListener);
+    console.log("Controle por movimento desativado");
   }
 
-  toggleMode.addEventListener('click', ()=>{
-    if(!ws || ws.readyState !== WebSocket.OPEN){ alert("Conecte-se primeiro."); return; }
+  toggleMode.addEventListener("click", ()=>{
+    if(!ws || ws.readyState!==WebSocket.OPEN){ alert("Conecte-se primeiro"); return; }
     if(gyroEnabled) disableMotion(); else enableMotion();
   });
 
-  // ============================================================
+  // ===========================================
   // TOUCHPAD
-  // ============================================================
-  pad.addEventListener('touchstart', e =>{
-    if(gyroEnabled) return; e.preventDefault(); moved=false;
-    const t = e.touches[0]; lastTouch={x:t.clientX,y:t.clientY};
-    isScrolling = e.touches.length>=2;
-  }, {passive:false});
+  // ===========================================
+  pad.addEventListener("touchstart",e=>{ if(gyroEnabled) return; e.preventDefault(); moved=false; const t=e.touches[0]; lastTouch={x:t.clientX,y:t.clientY}; isScrolling=e.touches.length>=2; },{passive:false});
+  pad.addEventListener("touchmove",e=>{ if(gyroEnabled) return; e.preventDefault(); moved=true; const touches=e.touches; if(isScrolling && touches.length>=2){ const cx=(touches[0].clientX+touches[1].clientX)/2; const cy=(touches[0].clientY+touches[1].clientY)/2; const dy=cy-lastTouch.y; lastTouch={x:cx,y:cy}; send({type:"scroll", dx:0, dy:-Math.round(dy*0.2)}); return; } const t=touches[0]; const dx=t.clientX-lastTouch.x; const dy=t.clientY-lastTouch.y; lastTouch={x:t.clientX,y:t.clientY}; send({type:"move", dx:Math.round(dx), dy:Math.round(dy), sensitivity}); },{passive:false});
+  pad.addEventListener("touchend",e=>{ if(gyroEnabled) return; e.preventDefault(); if(moved) return; const now=Date.now(); if(now-lastSingleTap<300){ send({type:"click", button:"left", clicks:2}); lastSingleTap=0; } else{ send({type:"click", button:"left", clicks:1}); lastSingleTap=now; } },{passive:false});
 
-  pad.addEventListener('touchmove', e =>{
-    if(gyroEnabled) return; e.preventDefault(); moved=true;
-    const touches = e.touches;
+  leftBtn.addEventListener("click",()=>send({type:"click", button:"left"}));
+  rightBtn.addEventListener("click",()=>send({type:"click", button:"right"}));
 
-    if(isScrolling && touches.length>=2){
-      const cx=(touches[0].clientX+touches[1].clientX)/2;
-      const cy=(touches[0].clientY+touches[1].clientY)/2;
-      const dy=cy-lastTouch.y; lastTouch={x:cx,y:cy};
-      send({type:'scroll', dx:0, dy:-Math.round(dy*0.2)}); return;
-    }
-
-    const t = touches[0];
-    const dx = t.clientX - lastTouch.x;
-    const dy = t.clientY - lastTouch.y;
-    lastTouch={x:t.clientX,y:t.clientY};
-    send({type:'move', dx:Math.round(dx), dy:Math.round(dy), sensitivity});
-  }, {passive:false});
-
-  pad.addEventListener('touchend', e =>{
-    if(gyroEnabled) return; e.preventDefault();
-    if(moved) return;
-    const now=Date.now();
-    if(now-lastSingleTap<300){ send({type:'click', button:'left', clicks:2}); lastSingleTap=0; }
-    else{ send({type:'click', button:'left', clicks:1}); lastSingleTap=now; }
-  }, {passive:false});
-
-  leftBtn.addEventListener('click', ()=>send({type:'click', button:'left'}));
-  rightBtn.addEventListener('click', ()=>send({type:'click', button:'right'}));
-
-  kbBtn.addEventListener('click', ()=>{
-    const v = keyboardDiv.style.display==='flex';
-    keyboardDiv.style.display=v?'none':'flex';
-    if(!v) setTimeout(()=>textToType.focus(),120);
-  });
-
-  sendText.addEventListener('click', ()=>{
-    const txt=textToType.value; if(!txt) return;
-    send({type:'type', text:txt}); textToType.value='';
-  });
+  kbBtn.addEventListener("click",()=>{ const v=keyboardDiv.style.display==="flex"; keyboardDiv.style.display=v?"none":"flex"; if(!v) setTimeout(()=>textToType.focus(),120); });
+  sendText.addEventListener("click",()=>{ const txt=textToType.value; if(!txt) return; send({type:"type", text:txt}); textToType.value=""; });
 })();
+
 </script>
 
 
