@@ -8,39 +8,61 @@
 <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' ws: wss: http: https: data: blob:;">
 
 <style>
-  body { font-family: system-ui, Arial, sans-serif; margin: 0; padding: 0; background: #f2f2f2; color: #222; }
-  .container { display: flex; flex-direction: column; align-items: center; padding: 12px; max-width: 500px; margin: auto; }
-  h1 { margin-top: 10px; font-size: 1.4rem; color: #054; text-align: center; }
-  #status { margin: 8px 0; padding: 8px; border-radius: 8px; background: #a00; color: #fff; font-weight: bold; text-align: center; width: 100%; }
-  input, button { padding: 10px; margin: 5px; width: 100%; border-radius: 8px; border: 1px solid #ccc; font-size: 1rem; }
-  button { cursor: pointer; background: #0b5; color: white; font-weight: 600; }
-  button:hover { background: #098; }
-  hr { width: 100%; margin: 12px 0; border: 0; border-top: 1px solid #ccc; }
-  #pad { width: 100%; height: 250px; border-radius: 12px; border: 2px solid #ccc; background: #fff; display: flex; align-items: center; justify-content: center; color: #555; user-select: none; touch-action: none; margin-top: 10px; }
-  .btns { display: flex; gap: 8px; width: 100%; justify-content: space-between; margin-top: 12px; }
-  #keyboard { display: flex; width: 100%; gap: 8px; margin-top: 10px; }
-  #keyboard input { flex: 1; }
-  #toggleMode { width: 100%; background: #444; color: white; }
-  #toggleMode.active { background: #e09f1f; }
-  #sessionTimer { margin-top: 6px; font-size: 1rem; font-weight: bold; color: #054; background: #d7ffd7; padding: 6px 10px; border-radius: 8px; display: none; width: 100%; text-align: center; }
-  #usageStats { margin-top: 10px; padding: 10px; background: #eef; border-radius: 8px; display: none; }
-  #cursor-indicator { position: fixed; width: 14px; height: 14px; background: rgba(0, 150, 255, 0.9); border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%); transition: transform 0.05s linear; z-index: 9999; }
-  #click-effect { position: fixed; width: 20px; height: 20px; border: 2px solid rgba(255, 255, 255, 0.8); border-radius: 50%; pointer-events: none; opacity: 0; transform: translate(-50%, -50%) scale(0.2); transition: opacity 0.2s, transform 0.2s; z-index: 9998; }
-  #force-meter { position: fixed; right: 15px; bottom: 20px; width: 12px; height: 120px; background: rgba(255, 255, 255, 0.15); border-radius: 10px; overflow: hidden; z-index: 9999; }
-  #force-fill { width: 100%; height: 0%; background: rgba(0, 200, 0, 0.9); transition: height 0.08s linear; }
-  #macroPanel {width: 100%;
-  padding: 15px;
-  background: #1e1e1e;
-  display: none;
-  flex-direction: column;
-  gap: 10px;
-  border-top: 2px solid #444;}
+  :root { --bg: #f2f2f2; --text: #222; --panel: #fff; --border: #ccc; --accent: #0b5; --accent-hover: #098; --danger: #a00; --title: #054; --macro-bg: #1e1e1e; --macro-item: #2a2a2a; }
+
+/* TEMA ESCURO */
+.dark { --bg: #121212; --text: #eee; --panel: #1e1e1e; --border: #444; --accent: #3a7; --accent-hover: #2a6; --danger: #d33; --title: #7cf; --macro-bg: #111; --macro-item: #222; }
+
+.media-btn { font-size: 2rem; padding: 18px; width: 90px; height: 90px; border-radius: 20px; border: 2px solid var(--border); background: var(--panel); color: var(--text); box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: transform .1s, background .2s; }
+
+.media-btn:active { transform: scale(0.92); background: var(--accent); color: #fff; }
+
+body { font-family: system-ui, Arial, sans-serif; margin: 0; padding: 0; background: var(--bg); color: var(--text); transition: background .25s, color .25s; }
+
+.container { display: flex; flex-direction: column; align-items: center; padding: 12px; max-width: 500px; margin: auto; }
+
+h1 { margin-top: 10px; font-size: 1.4rem; color: var(--title); text-align: center; }
+
+#status { margin: 8px 0; padding: 8px; border-radius: 8px; background: var(--danger); color: #fff; font-weight: bold; text-align: center; width: 100%; }
+
+input, button { padding: 10px; margin: 5px; width: 100%; border-radius: 8px; border: 1px solid var(--border); font-size: 1rem; background: var(--panel); color: var(--text); }
+
+button { cursor: pointer; background: var(--accent); color: white; font-weight: 600; transition: background .25s; }
+button:hover { background: var(--accent-hover); }
+
+hr { width: 100%; margin: 12px 0; border: 0; border-top: 1px solid var(--border); }
+
+#pad { width: 100%; height: 250px; border-radius: 12px; border: 2px solid var(--border); background: var(--panel); display: flex; align-items: center; justify-content: center; color: var(--text); user-select: none; touch-action: none; margin-top: 10px; }
+
+.btns { display: flex; gap: 8px; width: 100%; justify-content: space-between; margin-top: 12px; }
+
+#keyboard { display: flex; width: 100%; gap: 8px; margin-top: 10px; }
+
+#toggleMode { width: 100%; background: #444; color: white; }
+#toggleMode.active { background: #e09f1f; }
+
+#sessionTimer { margin-top: 6px; font-size: 1rem; font-weight: bold; color: var(--title); background: #d7ffd7; padding: 6px 10px; border-radius: 8px; display: none; width: 100%; text-align: center; }
+
+#usageStats { margin-top: 10px; padding: 10px; background: var(--panel); border-radius: 8px; display: none; }
+
+#cursor-indicator { position: fixed; width: 14px; height: 14px; background: rgba(0,150,255,0.9); border-radius: 50%; pointer-events: none; transform: translate(-50%,-50%); transition: transform 0.05s linear; z-index: 9999; }
+
+#click-effect { position: fixed; width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.8); border-radius: 50%; pointer-events: none; opacity: 0; transform: translate(-50%,-50%) scale(0.2); transition: opacity .2s, transform .2s; z-index: 9998; }
+
+#force-meter { position: fixed; right: 15px; bottom: 20px; width: 12px; height: 120px; background: rgba(255,255,255,0.15); border-radius: 10px; overflow: hidden; z-index: 9999; }
+
+#force-fill { width: 100%; height: 0%; background: rgba(0, 200, 0, 0.9); transition: height 0.08s linear; }
+
+#macroPanel { width: 100%; padding: 15px; background: var(--macro-bg); display: none; flex-direction: column; gap: 10px; border-top: 2px solid var(--border); }
+
+#mediaControls{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;padding:10px;}
 </style>
 </head>
 
 <body>
   <div class="container">
     <h1>Mouse Pointer</h1>
+    <button id="toggleTheme">🌗 Alternar Tema</button>
     <div id="status">Desconectado</div>
     <div id="sessionTimer">
 ⏱ Tempo de sessão: 00:00:00
@@ -114,7 +136,7 @@
 
   <!-- PAINEL DE MACROS -->
 <div id="macroPanel">
-  
+
   <h3 style="text-align:center; color:red">⚡ Macros e Atalhos Rápidos</h3>
 
   <div style="display:flex; flex-direction:column; gap:8px;">
@@ -127,6 +149,20 @@
 </div>
 
   <button id="toggleMacroPanel" style="width: 100%;margin-top: 10px;">⚡ Macros</button>
+
+  <h2 style="margin-top:20px; text-align:center;">🎵 Controles de Multimídia</h2>
+
+<div id="mediaControls">
+
+    <button class="media-btn" data-action="prev">⏮️</button>
+    <button class="media-btn" data-action="playpause">▶️/⏸️</button>
+    <button class="media-btn" data-action="next">⏭️</button>
+
+    <button class="media-btn" data-action="voldown">🔉</button>
+    <button class="media-btn" data-action="mute">🔇</button>
+    <button class="media-btn" data-action="volup">🔊</button>
+
+</div>
 
 
     <div id="keyboard" style="display:none;">
@@ -186,6 +222,32 @@
     const force = Math.min(1, Math.sqrt(dx*dx + dy*dy) / 25);
     forceFill.style.height = (force * 100) + "%";
   }
+
+// =======================
+// TEMA CLARO/ESCURO
+// =======================
+
+function applyTheme(theme){
+  if(theme === "dark"){
+    document.body.classList.add("dark");
+  } else {
+    document.body.classList.remove("dark");
+  }
+  localStorage.setItem("wsTheme", theme);
+}
+
+function toggleTheme(){
+  const current = localStorage.getItem("wsTheme") || "light";
+  const next = current === "light" ? "dark" : "light";
+  applyTheme(next);
+}
+
+// Carregar tema ao iniciar
+applyTheme(localStorage.getItem("wsTheme") || "light");
+
+// Botão
+document.getElementById("toggleTheme").addEventListener("click", toggleTheme);
+
 
   // ---------- ESTATÍSTICAS ----------
   const stats = {
@@ -737,6 +799,21 @@ document.getElementById("toggleMacroPanel").addEventListener("click", () => {
 
 // carrega ao abrir app
 loadMacros();
+
+// =====================
+// CONTROLE DE MULTIMÍDIA
+// =====================
+document.querySelectorAll(".media-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+        const action = btn.getAttribute("data-action");
+
+        ws.send(JSON.stringify({
+            type: "media",
+            action: action
+        }));
+    });
+});
+
 
 
 })();
